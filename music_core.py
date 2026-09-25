@@ -269,7 +269,14 @@ class Music(commands.Cog):
             except Exception:
                 pass
         else:
-            await self.save_state(player.guild.id)
+            clear_queue_state(player.guild.id)
+            state = self.state(player.guild.id)
+            if state.message:
+                try:
+                    await state.message.delete()
+                except discord.HTTPException:
+                    pass
+                state.message = None
 
     @commands.Cog.listener()
     async def on_wavelink_track_exception(self, payload):
