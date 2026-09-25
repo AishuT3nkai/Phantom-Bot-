@@ -16,3 +16,5 @@ services:
       - lavalink
     env_file:
       - .env
+    environment:
+      LAVALINK_URI: http://lavalink:2333
