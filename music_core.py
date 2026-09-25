@@ -12,7 +12,7 @@ from database import (
 )
 
 URL_RE = re.compile(r"^https?://", re.I)
-MENTION_DOT_RE = re.compile(r"^<@!?(\\d+)>\\.$")
+MENTION_DOT_RE = re.compile(r"^<@!?(\d+)>\.$")
 SEARCH_PREFIXES = ("ytmsearch:", "ytsearch:", "scsearch:", "dzsearch:")
 
 class State:
@@ -259,9 +259,13 @@ class Music(commands.Cog):
             return
         if player.autoplay != wavelink.AutoPlayMode.disabled:
             return
-        if player.queue:
+        try:
+            next_track = player.queue.get()
+        except wavelink.QueueEmpty:
+            next_track = None
+        if next_track:
             try:
-                await player.play(player.queue.get(), volume=get_settings(player.guild.id)[0])
+                await player.play(next_track, volume=get_settings(player.guild.id)[0])
             except Exception:
                 pass
         else:
