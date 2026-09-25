@@ -1,62 +1,58 @@
 # Phantom Bot
 
-Full Discord music bot powered by discord.py, Wavelink 3 and Lavalink v4.
+Full Discord music bot built with discord.py, Wavelink 3 and Lavalink 4.
 
 ## Playback
-- /play — search, URL or playlist
-- /search — multi-source search with result selection
-- /pause /resume /skip /previous /stop /leave
-- /seek /replay /volume
-- /queue /remove /move /jump /clear /shuffle
+
+- /play — song, URL or playlist
+- /search — searches multiple configured sources and lets the user select a result
+- /join / /leave
+- /pause / /resume / /skip / /previous / /stop
+- /queue / /clear / /remove / /move / /jump / /shuffle
+- /seek / /replay / /volume
 - /repeat off|song|queue
 - /filter off|nightcore|bassboost|8d|karaoke
 - /autoplay
 - /247
+- /restore
 - /history
 
 ## Personal music data
-- /favorite /unfavorite
+
+Favorites and playlists are separated by user and server.
+
+- /favorite / /unfavorite
 - /favorites @user
-- @username. public favorite lookup
-- /playlist_save
-- /playlist_load
-- /playlists
-- /playlist_delete
+- @username. or a Discord mention followed by a period for public favorite lookup
+- /playlist_save / /playlist_load / /playlists / /playlist_delete
+- /playlist_export / /playlist_import
 
-Favorites and playlists are separated by user and server. Other members can view another member's favorites, but they cannot edit that member's collection.
+Other members can view another user's favorites, but only the owner can edit their own favorites.
 
-## Sources
+## Music sources
 
-The Lavalink/LavaSrc stack is configured for a broad source set including YouTube/YouTube Music, SoundCloud and multiple metadata providers such as Spotify, Apple Music, Deezer, Tidal, Qobuz, Yandex Music, VK Music and JioSaavn. Additional Lavalink plugins are configured for sources including TikTok and Mixcloud.
+The Lavalink stack is configured for YouTube and YouTube Music, SoundCloud, Bandcamp, Twitch, Vimeo, Nico, plus LavaSrc sources such as Spotify, Apple Music, Deezer, Yandex Music, Tidal, Qobuz, VK Music and JioSaavn. DuncteBot adds additional source managers including TikTok, Mixcloud, Clyp, Reddit, OCRemix, Soundgasm and Pixeldrain.
 
-Source availability depends on the upstream platform and plugin. Some services provide metadata that is resolved to a playable mirror rather than direct audio.
+Some services are metadata sources that are mirrored to another playable source. TikTok support is included through the DuncteBot source plugin, but that upstream plugin documents TikTok as unstable, so TikTok availability can change without a bot-side code change.
 
-## Now-playing card
+## Reliability
 
-The current track artwork is used as the card background. The card shows title, artist, requester, playback state, duration and a progress bar. The old card is deleted before a refreshed card is posted, preventing a channel from filling with stale cards.
+- Persistent SQLite history and queue state
+- Queue restoration with /restore
+- Automatic restoration for guilds with 24/7 enabled
+- Voice websocket recovery
+- Track exception fallback search
+- Track-stuck recovery
+- Persistent now-playing card refreshed every 15 seconds
+- Old music card is deleted before the refreshed card is posted
+- Queue size limit configurable with /maxqueue
+- DJ role support with Manage Server fallback
+- GitHub Actions syntax and Python compile validation
 
-## Stack
+## Deployment
 
-Python 3.12, discord.py 2.x, Wavelink 3, Lavalink v4, SQLite and Pillow.
+Set DISCORD_TOKEN and the Lavalink password in .env.
 
-Wavelink provides native queue history, queue modes, seeking, autoplay and audio filters. See the current Wavelink API for the supported Player, Queue and Filters interfaces.
+For Docker Compose, the database is stored in ./data so container recreation does not remove saved music history, favorites or playlists.
 
-## Setup
-
-Copy .env.example to .env and set the bot token. Keep the Lavalink password identical in .env and lavalink/application.yml.
-
-Docker:
-
-docker compose up -d --build
-
-Normal Python:
-
-pip install -r requirements.txt
-java -jar Lavalink.jar
-python main.py
-
-Required Discord permissions include View Channel, Send Messages, Attach Files, Connect, Speak and Read Message History.
-
-Enable Message Content and Server Members intents in the Discord Developer Portal.
-
-Never commit .env or a real bot token.
+Lavalink 4.2.2, YouTube Source 1.18.2, LavaSrc 4.8.3 and DuncteBot 1.7.1 are pinned in the configuration.

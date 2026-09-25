@@ -1,13 +1,13 @@
 services:
   lavalink:
-    image: ghcr.io/lavalink-devs/lavalink:4
+    image: ghcr.io/lavalink-devs/lavalink:4.2.2
     restart: unless-stopped
     ports:
       - "2333:2333"
     volumes:
       - ./lavalink/application.yml:/opt/Lavalink/application.yml:ro
     environment:
-      _JAVA_OPTIONS: "-Xmx512M"
+      _JAVA_OPTIONS: "-Xmx768M"
 
   phantom:
     build: .
@@ -18,3 +18,7 @@ services:
       - .env
     environment:
       LAVALINK_URI: http://lavalink:2333
+      LAVALINK_PASSWORD: change-this-password
+      PHANTOM_DB_PATH: /app/data/phantom.db
+    volumes:
+      - ./data:/app/data
