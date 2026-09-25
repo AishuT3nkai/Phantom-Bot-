@@ -6,7 +6,7 @@ import wavelink
 
 from database import get_settings
 
-SEARCH_PREFIXES = ("ytmsearch:", "ytsearch:", "scsearch:", "dzsearch:", "spsearch:", "amsearch:")
+SEARCH_PREFIXES = ("ytmsearch:", "ytsearch:", "scsearch:", "dzsearch:", "spsearch:", "amsearch:", "tdsearch:", "qbsearch:", "jssearch:", "ymsearch:")
 
 class SearchSelect(discord.ui.Select):
     def __init__(self, cog, tracks):
