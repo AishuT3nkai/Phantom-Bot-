@@ -65,6 +65,20 @@ class Music(commands.Cog):
             await p.play(p.queue.get())
 
     @commands.Cog.listener()
+    async def on_voice_state_update(self,member,before,after):
+        if not self.bot.user or member.id!=self.bot.user.id:
+            return
+        if before.channel and not after.channel:
+            settings=get_settings(before.channel.guild.id)
+            if settings[4]:
+                await asyncio.sleep(3)
+                try:
+                    p=await before.channel.connect(cls=wavelink.Player)
+                    p.autoplay=wavelink.AutoPlayMode.enabled if settings[3] else wavelink.AutoPlayMode.disabled
+                except Exception:
+                    pass
+
+    @commands.Cog.listener()
     async def on_message(self,message):
         if message.author.bot or not message.guild: return
         raw=message.content.strip()
