@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 import wavelink
 import database
 from music import Music
+from advanced_music import AdvancedMusic
+from search_music import SearchMusic
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -27,6 +29,8 @@ class Phantom(commands.Bot):
         node=wavelink.Node(uri=LAVALINK_URI,password=LAVALINK_PASSWORD,identifier=LAVALINK_IDENTIFIER)
         await wavelink.Pool.connect(nodes=[node],client=self,cache_capacity=100)
         await self.add_cog(Music(self))
+        await self.add_cog(AdvancedMusic(self))
+        await self.add_cog(SearchMusic(self))
         await self.tree.sync()
 
     async def on_ready(self):
