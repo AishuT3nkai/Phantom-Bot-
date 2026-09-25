@@ -57,6 +57,32 @@ class Music(commands.Cog):
         if st.task and not st.task.done(): st.task.cancel()
         st.task=asyncio.create_task(self.ticker(p.guild.id))
 
+    @commands.Cog.listener()
+    async def on_wavelink_track_end(self,payload):
+        p=payload.player
+        if not p or not p.guild: return
+        if payload.reason == "finished" and p.queue:
+            await p.play(p.queue.get())
+
+    @commands.Cog.listener()
+    async def on_message(self,message):
+        if message.author.bot or not message.guild: return
+        raw=message.content.strip()
+        if raw.startswith("@") and raw.endswith("."):
+            name=raw[1:-1].strip().lower()
+            member=discord.utils.find(
+                lambda m: m.name.lower()==name or m.display_name.lower()==name,
+                message.guild.members
+            )
+            if member:
+                rows=get_favorites(member.id,message.guild.id)
+                if rows:
+                    lines=[f"**{member.display_name}'s Favorites**"]
+                    lines += [f"{i:02}. {r[0]} — {r[1]}" for i,r in enumerate(rows[:25],1)]
+                    await message.channel.send("\\n".join(lines))
+                else:
+                    await message.channel.send(f"{member.display_name} has no favorites here.")
+
     @commands.hybrid_command(name="play",description="Play a song or playlist.")
     async def play(self,interaction,*,query:str):
         try: p=await self.ensure(interaction)
