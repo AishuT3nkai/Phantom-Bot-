@@ -13,7 +13,7 @@ from database import (
 
 URL_RE = re.compile(r"^https?://", re.I)
 MENTION_DOT_RE = re.compile(r"^<@!?(\d+)>\.$")
-SEARCH_PREFIXES = ("ytmsearch:", "ytsearch:", "scsearch:", "dzsearch:")
+SEARCH_PREFIXES = ("ytmsearch:", "ytsearch:", "scsearch:", "dzsearch:", "spsearch:", "amsearch:", "tdsearch:", "qbsearch:", "jssearch:", "ymsearch:")
 
 class State:
     def __init__(self):
