@@ -1,0 +1,18 @@
+services:
+  lavalink:
+    image: ghcr.io/lavalink-devs/lavalink:4
+    restart: unless-stopped
+    ports:
+      - "2333:2333"
+    volumes:
+      - ./lavalink/application.yml:/opt/Lavalink/application.yml:ro
+    environment:
+      _JAVA_OPTIONS: "-Xmx512M"
+
+  phantom:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - lavalink
+    env_file:
+      - .env
