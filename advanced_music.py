@@ -26,6 +26,16 @@ class AdvancedMusic(commands.Cog):
         cog = self.music()
         return bool(cog and await cog.can_control(interaction))
 
+    @commands.hybrid_command(name="nowplaying", description="Show the current track and playback position.")
+    async def nowplaying(self, interaction):
+        player = self.player(interaction.guild)
+        if not player or not player.current:
+            return await interaction.response.send_message("Nothing is playing.", ephemeral=True)
+        position = max(0, int(player.position or 0)) // 1000
+        total = max(0, int(player.current.length or 0)) // 1000
+        state = "paused" if player.paused else "playing"
+        await interaction.response.send_message(f"Now playing: {player.current.title} — {player.current.author}\\n{position // 60:02d}:{position % 60:02d} / {total // 60:02d}:{total % 60:02d} · {state}", ephemeral=True)
+
     @commands.hybrid_command(name="previous", description="Play the previous track.")
     async def previous(self, interaction):
         if not await self.control(interaction):
