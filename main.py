@@ -54,6 +54,9 @@ class Phantom(commands.Bot):
 
     async def on_wavelink_node_ready(self, payload):
         logging.info("Lavalink ready: %s", payload.node)
+        cog = self.get_cog("Music")
+        if cog:
+            await cog.restore_all_247()
 
     async def on_wavelink_node_disconnected(self, payload):
         logging.warning("Lavalink node disconnected: %s", payload.node)
