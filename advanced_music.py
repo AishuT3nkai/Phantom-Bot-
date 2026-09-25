@@ -26,6 +26,29 @@ class AdvancedMusic(commands.Cog):
         cog = self.music()
         return bool(cog and await cog.can_control(interaction))
 
+    @commands.hybrid_command(name="lyrics", description="Find lyrics for the current song.")
+    async def lyrics(self, interaction):
+        player = self.player(interaction.guild)
+        if not player or not player.current:
+            return await interaction.response.send_message("Nothing is playing.", ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
+        import aiohttp
+        try:
+            async with aiohttp.ClientSession() as session:
+                params = {"track_name": str(player.current.title), "artist_name": str(player.current.author)}
+                async with session.get("https://lrclib.net/api/get", params=params, timeout=10) as response:
+                    if response.status != 200:
+                        return await interaction.followup.send("Lyrics not found.", ephemeral=True)
+                    data = await response.json()
+        except Exception:
+            return await interaction.followup.send("Lyrics service unavailable.", ephemeral=True)
+        text = data.get("plainLyrics") or data.get("syncedLyrics")
+        if not text:
+            return await interaction.followup.send("Lyrics not found.", ephemeral=True)
+        if len(text) > 3900:
+            text = text[:3890] + "\\n..."
+        await interaction.followup.send(f"**{player.current.title} — {player.current.author}**\\n{text}", ephemeral=True)
+
     @commands.hybrid_command(name="nowplaying", description="Show the current track and playback position.")
     async def nowplaying(self, interaction):
         player = self.player(interaction.guild)
