@@ -254,6 +254,10 @@ class AdvancedMusic(commands.Cog):
             player = await cog.ensure(interaction)
         except RuntimeError as exc:
             return await interaction.followup.send(str(exc), ephemeral=True)
+        except Exception:
+            return await interaction.followup.send(
+                "Unable to connect to the music system right now.", ephemeral=True
+            )
 
         volume, max_queue, _, autoplay, _ = get_settings(interaction.guild.id)
         player.autoplay = (
