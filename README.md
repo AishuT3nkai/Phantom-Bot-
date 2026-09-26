@@ -47,12 +47,12 @@ Some services are metadata sources that are mirrored to another playable source.
 - Old music card is deleted before the refreshed card is posted
 - Queue size limit configurable with /maxqueue
 - DJ role support with Manage Server fallback
-- GitHub Actions syntax and Python compile validation
+- GitHub Actions compile, import smoke tests and YAML validation
 
 ## Deployment
 
-Set DISCORD_TOKEN and the Lavalink password in .env.
+For a mobile-friendly NexusHost deployment, the bot has a built-in public Lavalink v4 default. You only need to set DISCORD_TOKEN. The Lavalink URI, password and secure flag can still be overridden with environment variables when using your own node.
 
-For Docker Compose, the database is stored in ./data so container recreation does not remove saved music history, favorites or playlists.
+For Docker Compose, the bot uses the local Lavalink service by default and stores SQLite data in ./data so container recreation does not remove saved music history, favorites or playlists.
 
-Lavalink 4.2.2, YouTube Source 1.18.2, LavaSrc 4.8.3 and DuncteBot 1.7.1 are pinned in the configuration.
+Lavalink 4.2.2, YouTube Source 1.18.2, LavaSrc 4.8.3 and DuncteBot 1.7.1 are pinned in the configuration. The public Lavalink default is third-party infrastructure and its availability/source coverage can change independently of Phantom.
