@@ -17,7 +17,7 @@ class SearchSelect(discord.ui.Select):
             options.append(
                 discord.SelectOption(
                     label=str(track.title)[:100],
-                    description=f"{source} | {track.author[:70]} | {cog.time(track.length)}",
+                    description=f"{source} | {str(track.author or 'Unknown')[:70]} | {cog.time(track.length)}",
                     value=str(index)
                 )
             )
