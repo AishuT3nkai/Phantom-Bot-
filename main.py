@@ -79,7 +79,6 @@ class Phantom(commands.Bot):
             uri=LAVALINK_URI,
             password=LAVALINK_PASSWORD,
             identifier=LAVALINK_IDENTIFIER,
-            secure=LAVALINK_SECURE,
             retries=None,
         )
         log.info(
