@@ -431,7 +431,10 @@ class Music(commands.Cog):
             if rows:
                 text = [f"{member.display_name}'s Favorites"]
                 text.extend(f"{n:02}. {row[0]} — {row[1]}" for n, row in enumerate(rows[:25], 1))
-                await message.channel.send("\n".join(text))
+                content = "\n".join(text)
+                if len(content) > 1900:
+                    content = content[:1890] + "\n..."
+                await message.channel.send(content)
             else:
                 await message.channel.send(f"{member.display_name} has no favorites here.")
         await self.bot.process_commands(message)
@@ -539,7 +542,10 @@ class Music(commands.Cog):
         lines = [f"Now: {player.current.title} — {player.current.author}"] if player.current else []
         lines.extend(f"{n:02}. {track.title} — {track.author}" for n, track in enumerate(list(player.queue)[:25], 1))
         lines.append(f"Queued: {player.queue.count}")
-        await interaction.response.send_message("\n".join(lines), ephemeral=True)
+        content = "\n".join(lines)
+        if len(content) > 1900:
+            content = content[:1890] + "\n..."
+        await interaction.response.send_message(content, ephemeral=True)
 
     @commands.hybrid_command(name="shuffle", description="Shuffle the queue.")
     async def shuffle(self, interaction):
@@ -600,7 +606,10 @@ class Music(commands.Cog):
             return await interaction.response.send_message(f"{member.display_name} has no favorites.", ephemeral=True)
         lines = [f"{member.display_name}'s Favorites"]
         lines.extend(f"{n:02}. {row[0]} — {row[1]}" for n, row in enumerate(rows[:25], 1))
-        await interaction.response.send_message("\n".join(lines))
+        content = "\n".join(lines)
+        if len(content) > 1900:
+            content = content[:1890] + "\n..."
+        await interaction.response.send_message(content)
 
 class Controls(discord.ui.View):
     def __init__(self, cog):
