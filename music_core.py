@@ -97,8 +97,7 @@ class Music(commands.Cog):
                     "I could not connect to that voice channel. Check my Connect and Speak permissions."
                 ) from exc
         volume, _, _, autoplay, _ = get_settings(interaction.guild.id)
-        await player.set_volume(volume)
-        player.autoplay = wavelink.AutoPlayMode.enabled if autoplay else wavelink.AutoPlayMode.disabled
+        await player.set_volume(volume)        player.autoplay = wavelink.AutoPlayMode.enabled if autoplay else wavelink.AutoPlayMode.disabled
         return player
 
     async def resolve(self, query):
@@ -197,8 +196,7 @@ class Music(commands.Cog):
         try:
             while True:
                 await asyncio.sleep(15)
-                guild = self.bot.get_guild(guild_id)
-                player = self.player(guild) if guild else None
+                guild = self.bot.get_guild(guild_id)                player = self.player(guild) if guild else None
                 if not guild or not player or not player.current:
                     return
                 await self.show_card(guild)
@@ -297,8 +295,7 @@ class Music(commands.Cog):
                 await self.start_ticker(guild_id)
             await self.save_state(guild_id)
             return True
-        except Exception:
-            log.exception("Failed to restore saved music state for guild %s", guild_id)
+        except Exception:            log.exception("Failed to restore saved music state for guild %s", guild_id)
             return False
 
     async def restore_all_247(self):
@@ -397,8 +394,7 @@ class Music(commands.Cog):
             except Exception:
                 pass
 
-    @commands.Cog.listener()
-    async def on_wavelink_websocket_closed(self, payload):
+    @commands.Cog.listener()    async def on_wavelink_websocket_closed(self, payload):
         player = payload.player
         if not player or not player.guild or not get_settings(player.guild.id)[4]:
             return
@@ -451,19 +447,22 @@ class Music(commands.Cog):
 
     @commands.hybrid_command(name="play", description="Play a song, URL or playlist.")
     async def play(self, interaction, *, query: str):
+        # Voice connection and source search can exceed Discord's 3-second
+        # initial response window. Acknowledge first, then use followup.
+        await interaction.response.defer(ephemeral=True)
         try:
             player = await self.ensure(interaction)
         except RuntimeError as exc:
-            return await interaction.response.send_message(str(exc), ephemeral=True)
+            return await interaction.followup.send(str(exc), ephemeral=True)
         try:
             result = await self.resolve(query)
         except Exception:
             log.exception("Track search failed in guild %s", interaction.guild.id)
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 "Music search is temporarily unavailable.", ephemeral=True
             )
         if not result:
-            return await interaction.response.send_message("No tracks found.", ephemeral=True)
+            return await interaction.followup.send("No tracks found.", ephemeral=True)
         state = self.state(interaction.guild.id)
         state.channel = interaction.channel
         state.requester_id = interaction.user.id
@@ -478,14 +477,14 @@ class Music(commands.Cog):
             message = f"Added {len(tracks)} tracks from {result.name}."
         else:
             if player.queue.count >= max_queue:
-                return await interaction.response.send_message("Queue is full.", ephemeral=True)
+                return await interaction.followup.send("Queue is full.", ephemeral=True)
             self.tag(result[0], interaction)
             player.queue.put(result[0])
             message = f"Added {result[0].title} — {result[0].author}."
         if not player.playing and player.queue:
             await player.play(player.queue.get(), volume=volume)
         await self.save_state(interaction.guild.id)
-        await interaction.response.send_message(message, ephemeral=True)
+        await interaction.followup.send(message, ephemeral=True)
 
     @commands.hybrid_command(name="join", description="Join your voice channel.")
     async def join(self, interaction):
@@ -497,8 +496,7 @@ class Music(commands.Cog):
 
     @commands.hybrid_command(name="pause", description="Pause playback.")
     async def pause(self, interaction):
-        if not await self.can_control(interaction):
-            return
+        if not await self.can_control(interaction):            return
         player = self.player(interaction.guild)
         if not player:
             return await interaction.response.send_message("Nothing is playing.", ephemeral=True)
@@ -597,7 +595,6 @@ class Music(commands.Cog):
         if not get_settings(interaction.guild.id)[4]:
             clear_queue_state(interaction.guild.id)
         await interaction.response.send_message("Disconnected.", ephemeral=True)
-
     @commands.hybrid_command(name="favorite", description="Favorite the current song.")
     async def favorite(self, interaction):
         player = self.player(interaction.guild)
