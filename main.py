@@ -21,21 +21,36 @@ logging.basicConfig(
 log = logging.getLogger("phantom")
 
 TOKEN = os.getenv("DISCORD_TOKEN")
-LAVALINK_URI = os.getenv(
-    "LAVALINK_URI",
-    "https://lavalinkv4.serenetia.com",
-).strip()
-LAVALINK_PASSWORD = os.getenv(
-    "LAVALINK_PASSWORD",
-    "https://dsc.gg/ajidevserver",
-)
-LAVALINK_IDENTIFIER = os.getenv("LAVALINK_IDENTIFIER", "PHANTOM").strip() or "PHANTOM"
+
+PUBLIC_LAVALINK_URI = "https://lavalinkv4.serenetia.com"
+PUBLIC_LAVALINK_PASSWORD = "https://dsc.gg/ajidevserver"
 
 def env_bool(name: str, default: bool) -> bool:
     raw = os.getenv(name)
     if raw is None:
         return default
     return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+raw_uri = os.getenv("LAVALINK_URI", "").strip()
+raw_password = os.getenv("LAVALINK_PASSWORD", "").strip()
+use_local = env_bool("LAVALINK_USE_LOCAL", False)
+
+# A stale Nexus variable such as 127.0.0.1:2333 must not break a mobile deployment.
+if (
+    not raw_uri
+    or raw_uri.lower() in {"http://127.0.0.1:2333", "http://localhost:2333"}
+) and not use_local:
+    LAVALINK_URI = PUBLIC_LAVALINK_URI
+    LAVALINK_PASSWORD = (
+        PUBLIC_LAVALINK_PASSWORD
+        if not raw_password or raw_password == "change-this-password"
+        else raw_password
+    )
+else:
+    LAVALINK_URI = raw_uri or "http://127.0.0.1:2333"
+    LAVALINK_PASSWORD = raw_password or "change-this-password"
+
+LAVALINK_IDENTIFIER = os.getenv("LAVALINK_IDENTIFIER", "PHANTOM").strip() or "PHANTOM"
 
 parsed_uri = urlparse(LAVALINK_URI)
 LAVALINK_SECURE = env_bool(
