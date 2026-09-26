@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import re
 
 import discord
@@ -36,7 +37,10 @@ class Music(commands.Cog):
         return self.states.setdefault(guild_id, State())
 
     def player(self, guild):
-        return guild.voice_client if isinstance(guild.voice_client, wavelink.Player) else None
+        player = guild.voice_client
+        if isinstance(player, wavelink.Player) and player.connected:
+            return player
+        return None
 
     def reason_name(self, reason):
         return getattr(reason, "name", str(reason)).lower().replace("trackendreason.", "")
@@ -114,10 +118,28 @@ class Music(commands.Cog):
             return result[0]
         return None
 
-    def tag(self, track, interaction):
-        track.phantom_requester = interaction.user.display_name
-        track.phantom_requester_id = interaction.user.id
+    def tag_values(self, track, requester, requester_id):
+        try:
+            extras = dict(getattr(track, "extras", {}) or {})
+        except (TypeError, ValueError):
+            extras = {}
+        extras["requester"] = str(requester or "Unknown")
+        extras["requester_id"] = int(requester_id) if requester_id is not None else None
+        track.extras = extras
         return track
+
+    def tag(self, track, interaction):
+        return self.tag_values(track, interaction.user.display_name, interaction.user.id)
+
+    def track_requester(self, track, default_name="Unknown", default_id=None):
+        try:
+            extras = dict(getattr(track, "extras", {}) or {})
+        except (TypeError, ValueError):
+            extras = {}
+        return (
+            extras.get("requester", default_name),
+            extras.get("requester_id", default_id),
+        )
 
     async def save_state(self, guild_id):
         guild = self.bot.get_guild(guild_id)
@@ -181,44 +203,93 @@ class Music(commands.Cog):
         state.ticker = asyncio.create_task(self.tick(guild_id))
 
     async def recover_voice(self, guild_id):
+        return await self.restore_saved(guild_id, require_247=True)
+
+    async def restore_saved(self, guild_id, *, require_247=False):
         guild = self.bot.get_guild(guild_id)
-        if not guild or self.player(guild):
-            return
+        if not guild:
+            return False
+
         _, _, _, autoplay, stay = get_settings(guild_id)
-        if not stay:
-            return
+        if require_247 and not stay:
+            return False
+
+        if self.player(guild):
+            return True
+
         saved = load_queue_state(guild_id)
         if not saved:
-            return
-        channel = guild.get_channel(saved["voice_channel_id"])
-        if not isinstance(channel, discord.VoiceChannel):
-            return
+            return False
+
+        channel = guild.get_channel(saved.get("voice_channel_id"))
+        if not isinstance(channel, (discord.VoiceChannel, discord.StageChannel)):
+            return False
+
+        stale = guild.voice_client
+        if isinstance(stale, wavelink.Player) and not stale.connected:
+            try:
+                await stale.disconnect()
+            except Exception:
+                pass
+
         try:
             player = await channel.connect(cls=wavelink.Player)
-            player.autoplay = wavelink.AutoPlayMode.enabled if autoplay else wavelink.AutoPlayMode.disabled
+            await player.set_volume(get_settings(guild_id)[0])
+            player.autoplay = (
+                wavelink.AutoPlayMode.enabled
+                if autoplay else wavelink.AutoPlayMode.disabled
+            )
+
             state = self.state(guild_id)
-            state.requester_id = saved["requester_id"]
-            state.requester = saved["requester"] or "Unknown"
-            if saved["text_channel_id"]:
-                state.channel = guild.get_channel(saved["text_channel_id"])
-            for data in saved["queue"]:
-                track = await self.resolve(data.get("uri") or data.get("title", ""))
-                if track and not isinstance(track, wavelink.Playlist):
-                    player.queue.put(track)
-            if saved["current"]:
-                track = await self.resolve_track(saved["current"].get("uri") or saved["current"].get("title", ""))
+            state.requester_id = saved.get("requester_id")
+            state.requester = saved.get("requester") or "Unknown"
+
+            text_id = saved.get("text_channel_id")
+            state.channel = guild.get_channel(text_id) if text_id else None
+
+            for data in saved.get("queue", []):
+                query = data.get("uri") or data.get("title", "")
+                track = await self.resolve_track(query)
                 if track:
-                    track.phantom_requester = state.requester
-                    track.phantom_requester_id = state.requester_id
+                    self.tag_values(
+                        track,
+                        data.get("requester", state.requester),
+                        data.get("requester_id", state.requester_id),
+                    )
+                    player.queue.put(track)
+
+            current_data = saved.get("current")
+            if current_data:
+                query = current_data.get("uri") or current_data.get("title", "")
+                track = await self.resolve_track(query)
+                if track:
+                    requester, requester_id = self.track_requester(
+                        track, state.requester, state.requester_id
+                    )
+                    self.tag_values(track, requester, requester_id)
                     await player.play(track, volume=get_settings(guild_id)[0])
-                    position = min(saved["current_position"], max(0, track.length - 1000))
-                    if position > 0:
+                    position = max(
+                        0,
+                        min(
+                            int(saved.get("current_position", 0) or 0),
+                            max(0, int(track.length or 0) - 1000),
+                        ),
+                    )
+                    if position > 0 and track.is_seekable:
                         await player.seek(position)
             elif player.queue:
-                await player.play(player.queue.get(), volume=get_settings(guild_id)[0])
-            await self.start_ticker(guild_id)
+                await player.play(
+                    player.queue.get(),
+                    volume=get_settings(guild_id)[0],
+                )
+
+            if player.current:
+                await self.start_ticker(guild_id)
+            await self.save_state(guild_id)
+            return True
         except Exception:
-            return
+            log.exception("Failed to restore saved music state for guild %s", guild_id)
+            return False
 
     async def restore_all_247(self):
         for guild in self.bot.guilds:
@@ -244,8 +315,11 @@ class Music(commands.Cog):
         if not player or not player.guild or not player.current:
             return
         state = self.state(player.guild.id)
-        state.requester_id = getattr(player.current, "phantom_requester_id", state.requester_id)
-        state.requester = getattr(player.current, "phantom_requester", state.requester)
+        state.requester, state.requester_id = self.track_requester(
+            player.current,
+            state.requester,
+            state.requester_id,
+        )
         state.retry = 0
         add_history(player.guild.id, state.requester_id, player.current)
         await self.save_state(player.guild.id)
@@ -267,10 +341,12 @@ class Music(commands.Cog):
             try:
                 await player.play(next_track, volume=get_settings(player.guild.id)[0])
             except Exception:
-                pass
+                log.exception("Failed to start next track in guild %s", player.guild.id)
         else:
             clear_queue_state(player.guild.id)
             state = self.state(player.guild.id)
+            if state.ticker and not state.ticker.done():
+                state.ticker.cancel()
             if state.message:
                 try:
                     await state.message.delete()
@@ -286,21 +362,22 @@ class Music(commands.Cog):
         state = self.state(player.guild.id)
         if state.retry >= 2:
             state.retry = 0
-            if player.queue:
-                try:
-                    await player.skip(force=True)
-                except Exception:
-                    pass
+            try:
+                await player.skip(force=True)
+            except Exception:
+                log.exception("Failed to skip errored track in guild %s", player.guild.id)
             return
+
         state.retry += 1
-        track = await self.resolve_track(f"{payload.track.title} {payload.track.author}")
+        track = await self.resolve_track(
+            f"{payload.track.title} {payload.track.author}"
+        )
         if track:
-            track.phantom_requester = state.requester
-            track.phantom_requester_id = state.requester_id
+            self.tag_values(track, state.requester, state.requester_id)
             try:
                 await player.play(track, volume=get_settings(player.guild.id)[0])
             except Exception:
-                pass
+                log.exception("Failed to retry track in guild %s", player.guild.id)
 
     @commands.Cog.listener()
     async def on_wavelink_track_stuck(self, payload):
@@ -354,7 +431,7 @@ class Music(commands.Cog):
             if rows:
                 text = [f"{member.display_name}'s Favorites"]
                 text.extend(f"{n:02}. {row[0]} — {row[1]}" for n, row in enumerate(rows[:25], 1))
-                await message.channel.send("\\n".join(text))
+                await message.channel.send("\n".join(text))
             else:
                 await message.channel.send(f"{member.display_name} has no favorites here.")
         await self.bot.process_commands(message)
@@ -443,6 +520,15 @@ class Music(commands.Cog):
         player.queue.clear()
         await player.stop()
         clear_queue_state(interaction.guild.id)
+        state = self.state(interaction.guild.id)
+        if state.ticker and not state.ticker.done():
+            state.ticker.cancel()
+        if state.message:
+            try:
+                await state.message.delete()
+            except discord.HTTPException:
+                pass
+            state.message = None
         await interaction.response.send_message("Stopped and cleared.", ephemeral=True)
 
     @commands.hybrid_command(name="queue", description="Show the queue.")
@@ -453,7 +539,7 @@ class Music(commands.Cog):
         lines = [f"Now: {player.current.title} — {player.current.author}"] if player.current else []
         lines.extend(f"{n:02}. {track.title} — {track.author}" for n, track in enumerate(list(player.queue)[:25], 1))
         lines.append(f"Queued: {player.queue.count}")
-        await interaction.response.send_message("\\n".join(lines), ephemeral=True)
+        await interaction.response.send_message("\n".join(lines), ephemeral=True)
 
     @commands.hybrid_command(name="shuffle", description="Shuffle the queue.")
     async def shuffle(self, interaction):
@@ -514,7 +600,7 @@ class Music(commands.Cog):
             return await interaction.response.send_message(f"{member.display_name} has no favorites.", ephemeral=True)
         lines = [f"{member.display_name}'s Favorites"]
         lines.extend(f"{n:02}. {row[0]} — {row[1]}" for n, row in enumerate(rows[:25], 1))
-        await interaction.response.send_message("\\n".join(lines))
+        await interaction.response.send_message("\n".join(lines))
 
 class Controls(discord.ui.View):
     def __init__(self, cog):
@@ -540,6 +626,8 @@ class Controls(discord.ui.View):
         if not track:
             return await interaction.response.send_message("No previous track.", ephemeral=True)
         player = self.cog.player(interaction.guild)
+        if not player:
+            return await interaction.response.send_message("Music player is no longer connected.", ephemeral=True)
         await interaction.response.defer()
         await player.play(track, volume=get_settings(interaction.guild.id)[0])
         await self.cog.save_state(interaction.guild.id)
@@ -576,3 +664,12 @@ class Controls(discord.ui.View):
             player.queue.clear()
             await player.stop()
         clear_queue_state(interaction.guild.id)
+        state = self.cog.state(interaction.guild.id)
+        if state.ticker and not state.ticker.done():
+            state.ticker.cancel()
+        if state.message:
+            try:
+                await state.message.delete()
+            except discord.HTTPException:
+                pass
+            state.message = None
