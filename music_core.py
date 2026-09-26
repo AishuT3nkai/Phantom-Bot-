@@ -85,7 +85,17 @@ class Music(commands.Cog):
         if player and player.channel != interaction.user.voice.channel:
             raise RuntimeError("Phantom is already in another voice channel.")
         if not player:
-            player = await interaction.user.voice.channel.connect(cls=wavelink.Player)
+            try:
+                player = await interaction.user.voice.channel.connect(
+                    cls=wavelink.Player,
+                    timeout=20,
+                    reconnect=True,
+                )
+            except Exception as exc:
+                log.exception("Voice connection failed in guild %s", interaction.guild.id)
+                raise RuntimeError(
+                    "I could not connect to that voice channel. Check my Connect and Speak permissions."
+                ) from exc
         volume, _, _, autoplay, _ = get_settings(interaction.guild.id)
         await player.set_volume(volume)
         player.autoplay = wavelink.AutoPlayMode.enabled if autoplay else wavelink.AutoPlayMode.disabled
@@ -445,7 +455,13 @@ class Music(commands.Cog):
             player = await self.ensure(interaction)
         except RuntimeError as exc:
             return await interaction.response.send_message(str(exc), ephemeral=True)
-        result = await self.resolve(query)
+        try:
+            result = await self.resolve(query)
+        except Exception:
+            log.exception("Track search failed in guild %s", interaction.guild.id)
+            return await interaction.response.send_message(
+                "Music search is temporarily unavailable.", ephemeral=True
+            )
         if not result:
             return await interaction.response.send_message("No tracks found.", ephemeral=True)
         state = self.state(interaction.guild.id)
