@@ -8,6 +8,7 @@ services:
       - ./lavalink/application.yml:/opt/Lavalink/application.yml:ro
     environment:
       _JAVA_OPTIONS: "-Xmx768M"
+      LAVALINK_SERVER_PASSWORD: ${LAVALINK_PASSWORD:-change-this-password}
 
   phantom:
     build: .
