@@ -45,9 +45,11 @@ class AdvancedMusic(commands.Cog):
         text = data.get("plainLyrics") or data.get("syncedLyrics")
         if not text:
             return await interaction.followup.send("Lyrics not found.", ephemeral=True)
-        if len(text) > 3900:
-            text = text[:3890] + "\n..."
-        await interaction.followup.send(f"**{player.current.title} — {player.current.author}**\n{text}", ephemeral=True)
+        header = f"**{player.current.title} — {player.current.author}**\n"
+        available = max(100, 1990 - len(header))
+        if len(text) > available:
+            text = text[:available - 14] + "\n...\n[truncated]"
+        await interaction.followup.send(header + text, ephemeral=True)
 
     @commands.hybrid_command(name="nowplaying", description="Show the current track and playback position.")
     async def nowplaying(self, interaction):
@@ -280,7 +282,10 @@ class AdvancedMusic(commands.Cog):
     @commands.hybrid_command(name="playlists", description="List your personal playlists.")
     async def playlists(self, interaction):
         names = list_playlists(interaction.user.id, interaction.guild.id)
-        await interaction.response.send_message("\n".join(names) if names else "No playlists.", ephemeral=True)
+        text = "\n".join(names) if names else "No playlists."
+        if len(text) > 1900:
+            text = text[:1890] + "\n..."
+        await interaction.response.send_message(text, ephemeral=True)
 
     @commands.hybrid_command(name="playlist_delete", description="Delete a personal playlist.")
     async def playlist_delete(self, interaction, name: str):
@@ -319,6 +324,8 @@ class AdvancedMusic(commands.Cog):
         if not rows:
             return await interaction.response.send_message("No history yet.", ephemeral=True)
         text = "\n".join(f"{n:02}. {row[0]} — {row[1]}" for n, row in enumerate(rows, 1))
+        if len(text) > 1900:
+            text = text[:1890] + "\n..."
         await interaction.response.send_message(text, ephemeral=True)
 
     @commands.hybrid_command(name="djrole", description="Set or replace the DJ role.")
