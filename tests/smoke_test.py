@@ -1,6 +1,9 @@
 import os
+import sys
 import tempfile
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 with tempfile.TemporaryDirectory() as tmp:
     os.environ["PHANTOM_DB_PATH"] = str(Path(tmp) / "phantom.db")
