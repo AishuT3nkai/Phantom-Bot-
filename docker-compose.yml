@@ -17,8 +17,9 @@ services:
     env_file:
       - .env
     environment:
-      LAVALINK_URI: http://lavalink:2333
-      LAVALINK_PASSWORD: change-this-password
+      LAVALINK_URI: ${LAVALINK_URI:-http://lavalink:2333}
+      LAVALINK_PASSWORD: ${LAVALINK_PASSWORD:-change-this-password}
+      LAVALINK_SECURE: ${LAVALINK_SECURE:-false}
       PHANTOM_DB_PATH: /app/data/phantom.db
     volumes:
       - ./data:/app/data
