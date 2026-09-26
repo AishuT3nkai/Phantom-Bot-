@@ -5,6 +5,8 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 
+from anti_raid import AntiRaid
+
 load_dotenv()
 
 logging.basicConfig(
@@ -23,6 +25,7 @@ class AishuBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents, help_command=None)
 
     async def setup_hook(self):
+        await self.add_cog(AntiRaid(self))
         await self.tree.sync()
 
     async def on_ready(self):
