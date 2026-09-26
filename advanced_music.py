@@ -46,8 +46,8 @@ class AdvancedMusic(commands.Cog):
         if not text:
             return await interaction.followup.send("Lyrics not found.", ephemeral=True)
         if len(text) > 3900:
-            text = text[:3890] + "\\n..."
-        await interaction.followup.send(f"**{player.current.title} — {player.current.author}**\\n{text}", ephemeral=True)
+            text = text[:3890] + "\n..."
+        await interaction.followup.send(f"**{player.current.title} — {player.current.author}**\n{text}", ephemeral=True)
 
     @commands.hybrid_command(name="nowplaying", description="Show the current track and playback position.")
     async def nowplaying(self, interaction):
@@ -57,17 +57,21 @@ class AdvancedMusic(commands.Cog):
         position = max(0, int(player.position or 0)) // 1000
         total = max(0, int(player.current.length or 0)) // 1000
         state = "paused" if player.paused else "playing"
-        await interaction.response.send_message(f"Now playing: {player.current.title} — {player.current.author}\\n{position // 60:02d}:{position % 60:02d} / {total // 60:02d}:{total % 60:02d} · {state}", ephemeral=True)
+        await interaction.response.send_message(f"Now playing: {player.current.title} — {player.current.author}\n{position // 60:02d}:{position % 60:02d} / {total // 60:02d}:{total % 60:02d} · {state}", ephemeral=True)
 
     @commands.hybrid_command(name="previous", description="Play the previous track.")
     async def previous(self, interaction):
         if not await self.control(interaction):
             return
         cog = self.music()
+        if not cog:
+            return await interaction.response.send_message("Music system unavailable.", ephemeral=True)
         track = await cog.previous_track(interaction.guild)
         if not track:
             return await interaction.response.send_message("No previous track.", ephemeral=True)
         player = cog.player(interaction.guild)
+        if not player:
+            return await interaction.response.send_message("Music player is not connected.", ephemeral=True)
         await player.play(track, volume=get_settings(interaction.guild.id)[0])
         await cog.save_state(interaction.guild.id)
         await interaction.response.send_message(f"Playing previous: {track.title}.", ephemeral=True)
@@ -241,27 +245,42 @@ class AdvancedMusic(commands.Cog):
         if name not in names:
             return await interaction.response.send_message("Playlist not found.", ephemeral=True)
         cog = self.music()
+        if not cog:
+            return await interaction.response.send_message("Music system unavailable.", ephemeral=True)
         await interaction.response.defer(ephemeral=True)
-        player = await cog.ensure(interaction)
+        try:
+            player = await cog.ensure(interaction)
+        except RuntimeError as exc:
+            return await interaction.followup.send(str(exc), ephemeral=True)
+
+        volume, max_queue, _, autoplay, _ = get_settings(interaction.guild.id)
+        player.autoplay = (
+            wavelink.AutoPlayMode.enabled
+            if autoplay else wavelink.AutoPlayMode.disabled
+        )
+
         loaded = 0
+        available = max(0, max_queue - player.queue.count)
         for title, author, uri, artwork, duration, track_id in get_playlist(
             interaction.user.id, interaction.guild.id, name
         ):
+            if loaded >= available:
+                break
             track = await cog.resolve_track(uri or title)
             if track:
-                track.phantom_requester = interaction.user.display_name
-                track.phantom_requester_id = interaction.user.id
+                cog.tag_values(track, interaction.user.display_name, interaction.user.id)
                 player.queue.put(track)
                 loaded += 1
+
         if not player.playing and player.queue:
-            await player.play(player.queue.get(), volume=get_settings(interaction.guild.id)[0])
+            await player.play(player.queue.get(), volume=volume)
         await cog.save_state(interaction.guild.id)
         await interaction.followup.send(f"Loaded {loaded} tracks.", ephemeral=True)
 
     @commands.hybrid_command(name="playlists", description="List your personal playlists.")
     async def playlists(self, interaction):
         names = list_playlists(interaction.user.id, interaction.guild.id)
-        await interaction.response.send_message("\\n".join(names) if names else "No playlists.", ephemeral=True)
+        await interaction.response.send_message("\n".join(names) if names else "No playlists.", ephemeral=True)
 
     @commands.hybrid_command(name="playlist_delete", description="Delete a personal playlist.")
     async def playlist_delete(self, interaction, name: str):
@@ -299,7 +318,7 @@ class AdvancedMusic(commands.Cog):
         rows = get_history(interaction.guild.id, 20)
         if not rows:
             return await interaction.response.send_message("No history yet.", ephemeral=True)
-        text = "\\n".join(f"{n:02}. {row[0]} — {row[1]}" for n, row in enumerate(rows, 1))
+        text = "\n".join(f"{n:02}. {row[0]} — {row[1]}" for n, row in enumerate(rows, 1))
         await interaction.response.send_message(text, ephemeral=True)
 
     @commands.hybrid_command(name="djrole", description="Set or replace the DJ role.")
